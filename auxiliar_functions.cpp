@@ -182,11 +182,75 @@ MatrixXd sample2_A(const MatrixXd& Z, const MatrixXd& X, double sigma_x, double 
   MatrixXd new_A(K, D);
   for(unsigned k=0; k<K; ++k) {
     for(unsigned d=0; d<D; ++d) {
-      std::normal_distribution<double> distr(mu_posterior(d), Sigma_posterior);
-      new_A(k,d) = distr(generator); // sampling dei valori di A elemento per elemento
+      std::normal_distribution<double> distr(mu_posterior[d], Sigma_posterior);
+      new_A[k,d] = distr(generator); // sampling dei valori di A elemento per elemento
     }
   }
   return new_A;
   }
   // Fine 4.2
 */
+
+
+
+// Per il calcolo delle log[P(X|Z)]
+double compute_cardinality(Eigen::MatrixXd Z) {
+    
+    int base_ten;   
+    Eigen::VectorXd histories(Z.cols(),-1);
+    Eigen::VectorXd occurrences(Z.cols(),0); // con una unordered map sarebbe molto meglio, ma ad Eigen non piacciono gli iteratori :(
+    
+    
+    for(size_t i=0;i<Z.cols();++i){
+        base_ten = 0;
+        for(size_t j=0; j<Z.rows();++j){
+            if(Z(i,j)==1){
+                base_ten+=pow(2,Z.cols()-j-1); // la colonne di Z vengono lette in binario dall'alto in basso e trasformata in base 10
+                                                   // lo faccio per identificare univocamente e facilmente features con la stessa storia (colonne uguali => base_ten uguali)
+                                                   // potrà anche tornare utile per creare la left_order_form (dove potremo ordinare le colonne da sx a dx in ordine decrescente di numero base_ten)
+            } 
+
+        for(int k=0;k<occurrences.size();++k){       
+            if(histories(k)==base_ten){            // se la base_10 della i-esima colonna di Z è già stata messa in histories
+                occurrences(k)+=1;                 // allora ne aumento il contatore di occorrenze
+                break;                            
+            }
+        }
+        
+        if(k == occurrences.size()){               // alternativamente, avremo trovato una nuova history...
+            size_t w = 0;
+            while(occurrences(w) != -1){           
+                w++;
+            }
+            histories(w) = base_ten;                // che cataloghiamo nel primo slot libero di histories
+            occurrences(w) = 1;                     // con contatore di occorrenze in occurrences inizializzato ad 1
+        }
+    }       
+        
+    double cardinality = 1;                        // Calcolo della cardinalità:
+    int current_occurrence = 0;                    // per K grandi il calcolo dei singoli K!, K1!, K2!, ...
+    int q = 1;                                     // può diventare molto costoso (esplodono rapidamente), quindi
+                                                   // approccio il calcolo della quantità K!/(K1!K2!...Kh!) richiesto come segue
+        
+                                                   // Es: matrice Z ha 8 colonne (K = 8) che presentano solo 2 histories diverse:
+                                                   // la prima history appare 5 volte e la seconda 3 volte (occurrences = [5,3])
+        
+                                                   // cardinality inizializzato ad 1,
+                                                   // e ad ogni step viene moltiplicato per una quantità (sempre relativamente piccola):
+                                                   // in ordine, negli step del ciclo for queste quantità sono:
+                                                   // 8/1   7/2   6/3   5/4   4/5   3/1   2/2   1/3 
+                                                   // e il calcolo è completo :)
+                                                    
+    for(int p=Z.col();p>0;p--){
+        if(q>occurrences(current_occurrence)){
+            q = 1;
+            current_occurrence++;
+        }
+        cardinality *= p/q;
+        q++;
+    }
+    return cardinality;
+    }
+    
+    
+
