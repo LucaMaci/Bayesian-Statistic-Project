@@ -48,5 +48,7 @@ double metropolis_step_sigma(double current_sigma, const MatrixXd& Z, const Matr
 // Function to sample A matrix
 MatrixXd sample_A(const MatrixXd& Z, const MatrixXd& X, double sigma_x, double sigma_a, std::default_random_engine& generator);
 
+// Function to compute the Cardinality of the histories of Z
+double compute_cardinality(const Eigen::MatrixXd Z);
 
 #endif //AUXILIAR_FUNCTIONS_H
